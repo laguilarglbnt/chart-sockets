@@ -1,11 +1,14 @@
 <template>
     <div>
+        <button v-for="(serie, index) of series" :key="index" @click="addSerie(index)">
+            No: {{ index }} {{ serie.Open }}
+        </button>
+        <br><br>
         <select v-model="timeType" @change="onTimeTypeChange">
             <option v-for="(type, index) of timeTypeList" :key="index">
                 {{ type }}
             </option>
         </select> <br/>
-        {{ timeType }}
         <Chart :options="chartOptions" :series="chartSeries"/>
     </div>
 </template>
@@ -24,6 +27,7 @@ export default {
         return {
             timeType: TimeType.DAILY,
             timeTypeList: Object.values(TimeType),
+            series: [],
 
             // Services
             stockService: null,
@@ -69,7 +73,10 @@ export default {
 
         getStockBy() {
             return this.stockService.getStockBy(this.timeType)
-                .then(series => this.chartSeries = series)
+                .then(series => {
+                    this.series = series[0].data.splice(0, 20) // bad code, just for testing
+                    this.chartSeries = [{ data: [] }]
+                })
         },
 
         initSocket() {
@@ -79,6 +86,29 @@ export default {
                 this.timeType = timeType
                 this.getStockBy()
             })
+
+            this.socket.on(SOCKET_EVENT.ADD_SERIE, index => {
+                this.addSerieToChart(this.series[index])
+                this.removeButtonSerie(index);
+            })
+        },
+
+        addSerieToChart(serie) {
+            const series = this.chartSeries[0].data; //bad code
+            this.chartSeries = [{ 
+                data: [...series, serie]
+            }]
+        },
+
+        addSerie(index) {
+            const [serie] = this.removeButtonSerie(index)
+            this.addSerieToChart(serie)
+            this.socket.emit(SOCKET_EVENT.ADD_SERIE, index) // this could be something different (may be some ID)
+
+        },
+
+        removeButtonSerie(index) {
+            return this.series.splice(index, 1)
         }
     }
 }

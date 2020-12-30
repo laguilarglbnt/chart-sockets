@@ -3,7 +3,8 @@ import { io } from 'socket.io-client'
 export const SOCKET_URL = 'ws://localhost:3000'
 
 export const SOCKET_EVENT = Object.freeze({
-    TIME_TYPE_CHANGE: 'timeTypeChange'
+    TIME_TYPE_CHANGE: 'timeTypeChange',
+    ADD_SERIE: 'addSerie'
 })
 
 export class SocketService {

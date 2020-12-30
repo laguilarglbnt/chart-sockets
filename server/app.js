@@ -11,6 +11,11 @@ io.on('connection', (socket) => {
         socket.broadcast.emit('timeTypeChange', timeType);
     });
 
+    socket.on('addSerie', serie => {
+        console.log(serie);
+        socket.broadcast.emit('addSerie', serie);
+    });
+
     socket.on('disconnect', () => console.log('User disconnected'));
 
     console.log(`${io.sockets.sockets.size} users connected`);
