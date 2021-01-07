@@ -1,14 +1,17 @@
 <template>
     <div>
-        <button v-for="(serie, index) of series" :key="index" @click="addSerie(index)">
+        <button v-for="(serie, index) of series" :key="index" @click="addNewSerie(index)">
             No: {{ index }} {{ serie.Open }}
         </button>
+
         <br><br>
-        <select v-model="timeType" @change="onTimeTypeChange">
+        
+        <select v-model="timeType">
             <option v-for="(type, index) of timeTypeList" :key="index">
                 {{ type }}
             </option>
         </select> <br/>
+
         <Chart :options="chartOptions" :series="chartSeries"/>
     </div>
 </template>
@@ -17,98 +20,86 @@
 import { TimeType, AppleStockService } from '../services/apple-stock.service.js'
 import Chart from './Chart.vue'
 import { SocketService, SOCKET_URL, SOCKET_EVENT } from '../services/socket.service'
+import { ref, onMounted, watch } from '@vue/composition-api'
+import { useChartSeries } from '../composables/useChartSeries'
 
 export default {
     name: 'Home',
     components: {
         Chart
     },
-    data() {
-        return {
-            timeType: TimeType.DAILY,
-            timeTypeList: Object.values(TimeType),
-            series: [],
-
-            // Services
-            stockService: null,
-
-            // socket
-            socket: null,
-
-            // Chart
-            chartOptions: {
-                chart: {
-                    type: 'candlestick',
-                    height: 350
-                },
-                title: {
-                    text: 'CandleStick Chart',
-                    align: 'left'
-                },
-                xaxis: {
-                    type: 'datetime'
-                },
-                yaxis: {
-                    tooltip: {
-                        enabled: true
-                    }
-                }
+    setup() {
+        const { series: chartSeries, addSerie, cleanSeries } = useChartSeries([])
+        const timeType = ref(TimeType.DAILY)
+        const timeTypeList = ref(Object.values(TimeType))
+        const series = ref([])
+        const stockService = new AppleStockService()
+        const socket = new SocketService(SOCKET_URL)
+        const chartOptions = {
+            chart: {
+                type: 'candlestick',
+                height: 350
             },
-            chartSeries: []
-        };
-    },
-    created() {
-        this.initSocket()
-    },
-    mounted() {
-        this.stockService = new AppleStockService()
-        this.getStockBy()
-    },
-    methods: {
-        onTimeTypeChange() {
-            this.getStockBy().then(() => {
-                this.socket.emit(SOCKET_EVENT.TIME_TYPE_CHANGE, this.timeType)
-            })
-        },
+            title: {
+                text: 'CandleStick Chart',
+                align: 'left'
+            },
+            xaxis: {
+                type: 'datetime'
+            },
+            yaxis: {
+                tooltip: {
+                    enabled: true
+                }
+            }
+        }
 
-        getStockBy() {
-            return this.stockService.getStockBy(this.timeType)
-                .then(series => {
-                    this.series = series[0].data.splice(0, 20) // bad code, just for testing
-                    this.chartSeries = [{ data: [] }]
+        socket.on(SOCKET_EVENT.TIME_TYPE_CHANGE, timeTypeRespose => {
+            timeType.value = timeTypeRespose
+            getStockBy()
+        })
+
+        socket.on(SOCKET_EVENT.ADD_SERIE, index => {
+            addSerie(series.value[index])
+            removeButtonSerie(index)
+        })
+
+        function getStockBy() {
+            return stockService.getStockBy(timeType.value)
+                .then(seriesResponse => {
+                    series.value = seriesResponse[0].data.splice(0, 20) // bad code, just for testing
+                    cleanSeries()
                 })
-        },
+        }
 
-        initSocket() {
-            this.socket = new SocketService(SOCKET_URL)
+        function addNewSerie(index) {
+            const [serie] = removeButtonSerie(index)
+            addSerie(serie)
+            socket.emit(SOCKET_EVENT.ADD_SERIE, index) // this could be something different (may be some ID)
 
-            this.socket.on(SOCKET_EVENT.TIME_TYPE_CHANGE, timeType => {
-                this.timeType = timeType
-                this.getStockBy()
+        }
+
+        function onTimeTypeChange(timeType) {
+            getStockBy().then(() => {
+                socket.emit(SOCKET_EVENT.TIME_TYPE_CHANGE, timeType)
             })
+        }
 
-            this.socket.on(SOCKET_EVENT.ADD_SERIE, index => {
-                this.addSerieToChart(this.series[index])
-                this.removeButtonSerie(index);
-            })
-        },
+        function removeButtonSerie(index) {
+            return series.value.splice(index, 1)
+        }
 
-        addSerieToChart(serie) {
-            const series = this.chartSeries[0].data; //bad code
-            this.chartSeries = [{ 
-                data: [...series, serie]
-            }]
-        },
+        onMounted(getStockBy)
 
-        addSerie(index) {
-            const [serie] = this.removeButtonSerie(index)
-            this.addSerieToChart(serie)
-            this.socket.emit(SOCKET_EVENT.ADD_SERIE, index) // this could be something different (may be some ID)
+        watch(timeType, onTimeTypeChange)
 
-        },
-
-        removeButtonSerie(index) {
-            return this.series.splice(index, 1)
+        return {
+            timeType,
+            timeTypeList,
+            series,
+            addNewSerie,
+            chartSeries,
+            chartOptions
         }
     }
 }

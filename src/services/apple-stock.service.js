@@ -11,7 +11,6 @@ export class AppleStockService {
     getStockBy(TimeType) {
         return fetch(`${this.__baseApi}/${TimeType}.json`)
             .then(res => res.json())
-            .then(res => res)
             .then(this.__formatSerie);
     }
 

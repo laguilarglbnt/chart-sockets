@@ -9,6 +9,7 @@
     "backend": "node ./server/app.js"
   },
   "dependencies": {
+    "@vue/composition-api": "^1.0.0-beta.24",
     "apexcharts": "^3.23.0",
     "core-js": "^3.6.5",
     "socket.io-client": "^3.0.4",
